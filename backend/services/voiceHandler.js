@@ -1,6 +1,13 @@
 const axios = require('axios');
 const db = require('../database');
 const FormData = require('form-data');
+require('dotenv').config();
+
+const AfricasTalking = require('africastalking')({
+  apiKey: process.env.AT_API_KEY,
+  username: process.env.AT_USERNAME
+});
+const sms = AfricasTalking.SMS;
 
 // AI Processing Service
 class VoiceHandler {
@@ -267,28 +274,20 @@ class VoiceHandler {
     });
   }
 
-  // Send SMS via Africa's Talking
+  // Send SMS via Africa's Talking SDK
   static async sendSMS(phoneNumber, result) {
     try {
-      const message = result.success ? result.message : `❌ Error: ${result.error}`;
+      const message = result.success
+        ? `SenteVoice: ${result.message}`
+        : `SenteVoice: Error - ${result.error}`;
 
-      const response = await axios.post(
-        'https://api.africastalking.com/version1/messaging',
-        new URLSearchParams({
-          username: process.env.AT_USERNAME,
-          to: phoneNumber,
-          message: message,
-          from: 'SenteVoice'
-        }),
-        {
-          headers: {
-            'apiKey': process.env.AT_API_KEY,
-            'Content-Type': 'application/x-www-form-urlencoded'
-          }
-        }
-      );
+      await sms.send({
+        to: [phoneNumber],
+        message,
+        from: process.env.AT_SENDER_ID || undefined  // leave undefined for sandbox
+      });
 
-      console.log('SMS sent successfully:', response.data);
+      console.log('✅ SMS sent to', phoneNumber);
     } catch (error) {
       console.error('SMS sending failed:', error.message);
     }
