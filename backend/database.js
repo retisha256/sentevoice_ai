@@ -1,11 +1,21 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 
-// Initialize database
-const db = new sqlite3.Database(path.join(__dirname, 'database.sqlite'));
+const db = new sqlite3.Database(
+  path.join(__dirname, 'database.sqlite'),
+  (err) => {
+    if (err) {
+      console.error('Database connection error:', err.message);
+    } else {
+      console.log('✅ Database initialized successfully');
+    }
+  }
+);
 
-// Create tables
 db.serialize(() => {
+  // Enable foreign keys
+  db.run('PRAGMA foreign_keys = ON');
+
   // Groups table
   db.run(`
     CREATE TABLE IF NOT EXISTS groups (
@@ -15,13 +25,13 @@ db.serialize(() => {
     )
   `);
 
-  // Members table
+  // Members table (phone is UNIQUE now)
   db.run(`
     CREATE TABLE IF NOT EXISTS members (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      group_id INTEGER,
+      group_id INTEGER NOT NULL,
       name TEXT NOT NULL,
-      phone TEXT NOT NULL,
+      phone TEXT UNIQUE NOT NULL,
       balance REAL DEFAULT 0,
       total_savings REAL DEFAULT 0,
       total_loans REAL DEFAULT 0,
@@ -34,7 +44,7 @@ db.serialize(() => {
   db.run(`
     CREATE TABLE IF NOT EXISTS transactions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      member_id INTEGER,
+      member_id INTEGER NOT NULL,
       type TEXT CHECK(type IN ('savings', 'loan', 'repayment', 'interest')),
       amount REAL NOT NULL,
       description TEXT,
@@ -43,12 +53,17 @@ db.serialize(() => {
     )
   `);
 
-  // Insert default group if not exists
+  // Default group
   db.run(`
-    INSERT OR IGNORE INTO groups (id, name) VALUES (1, 'Default VSLA Group')
+    INSERT OR IGNORE INTO groups (id, name)
+    VALUES (1, 'Default VSLA Group')
+  `);
+
+  // Add index for faster lookup
+  db.run(`
+    CREATE INDEX IF NOT EXISTS idx_members_phone
+    ON members(phone)
   `);
 });
-
-console.log('✅ Database initialized successfully');
 
 module.exports = db;
